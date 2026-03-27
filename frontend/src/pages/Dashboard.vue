@@ -58,7 +58,7 @@
                   <div v-if="!meta.advanced || item[fieldName]" class="mb-2">
                     <div class="text-caption text-medium-emphasis mb-1">{{ meta.label }}</div>
                     <div class="text-body-2 text-high-emphasis text-truncate">
-                      {{ item[fieldName] || '-' }}
+                      {{ getDisplayValue(siteKey, fieldName, item[fieldName]) }}
                     </div>
                   </div>
                 </v-col>
@@ -136,6 +136,18 @@
                     </v-tooltip>
                   </template>
                 </v-text-field>
+
+                <v-select
+                    v-else-if="meta.type === 'select'"
+                    v-model="dialog.data[fieldName]"
+                    :items="meta.options"
+                    :label="meta.advanced ? meta.label : `${meta.label} *`"
+                    item-title="label"
+                    item-value="value"
+                    color="primary"
+                    density="comfortable"
+                    variant="outlined"
+                ></v-select>
               </v-col>
             </template>
           </v-row>
@@ -233,6 +245,16 @@ const saveToServer = async () => {
   } catch (e) {
     showMsg('保存失败', 'error')
   }
+}
+
+const getDisplayValue = (siteKey, fieldName, value) => {
+  if (!value) return '-'
+  const field = schema.value[siteKey]?.fields[fieldName]
+  if (field?.type === 'select' && field.options) {
+    const option = field.options.find(opt => opt.value === value)
+    return option ? option.label : value
+  }
+  return value
 }
 
 onMounted(init)

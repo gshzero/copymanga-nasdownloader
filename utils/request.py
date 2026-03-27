@@ -1,7 +1,7 @@
 import logging
 import time
 
-import requests
+import httpx
 
 from utils import config
 
@@ -20,25 +20,34 @@ class RequestHandler:
         :param delay: 每次重试的间隔时间（秒）
         :param timeout: 请求超时时间（秒）
         """
-        if proxy is None:
-            proxy = {}
-        self.proxy = proxy
-        self.headers = headers
-        self.retries = retries
-        if headers is None:
-            self.headers = HEADERS
+        self.proxy = proxy or {}
+        self.headers = headers or HEADERS
         self.retries = retries
         self.delay = delay
         self.timeout = timeout
         self.api = config.CM_API_URL.rstrip('/')  # 确保API地址没有结尾斜杠
-        self.session = requests.Session()
+        
+        # httpx proxy format: {"http://": "...", "https://": "..."} or just a string
+        mounts = {}
+        if self.proxy:
+            if isinstance(self.proxy, dict):
+                for proto, url in self.proxy.items():
+                    if url:
+                        mounts[f"{proto}://"] = httpx.HTTPTransport(proxy=url)
+            elif isinstance(self.proxy, str):
+                mounts = {"all://": httpx.HTTPTransport(proxy=self.proxy)}
+
+        self.client = httpx.Client(
+            headers=self.headers,
+            timeout=self.timeout,
+            mounts=mounts,
+            follow_redirects=True
+        )
 
     def _build_url(self, url: str) -> str:
         """智能构建完整URL"""
-        # 如果已经是完整地址则直接使用
         if url.lower().startswith(('http://', 'https://')):
             return url
-        # 拼接API地址和路径
         return f"{self.api}/{url.lstrip('/')}"
 
     def request(self, method, url, **kwargs):
@@ -46,19 +55,23 @@ class RequestHandler:
 
         for attempt in range(1, self.retries + 1):
             try:
-                self.session.headers.update(self.headers)
-                response = self.session.request(method, full_url, timeout=self.timeout, proxies=self.proxy, **kwargs)
+                # 保持 headers 同步，因为有些插件会动态修改 Handler.headers
+                self.client.headers.update(self.headers)
+                response = self.client.request(method, full_url, **kwargs)
 
                 if response.status_code in (200, 201, 202):
                     return response
+                
                 if response.status_code == 210:
                     log.error(
                         f"[{method}] 请求失败 (状态码: {response.status_code})，URL: {full_url}，信息为：{response.json().get('message')}\n 对于210只能更换代理或者等待1小时后重试，我们无能为力")
-                    exit(1)
+                    import sys
+                    sys.exit(1)
+                    
                 log.warning(
                     f"[{method}] 请求失败 (状态码: {response.status_code})，URL: {full_url}，尝试第 {attempt}/{self.retries} 次...")
 
-            except requests.RequestException as e:
+            except httpx.RequestError as e:
                 log.warning(f"[{method}] 请求异常: {e}，URL: {full_url}，尝试第 {attempt}/{self.retries} 次...")
 
             time.sleep(self.delay)

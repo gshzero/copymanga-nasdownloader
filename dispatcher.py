@@ -13,6 +13,7 @@ class DownloadDispatcher:
         "terra_historicus": "plugins.terra_historicus.main",
         "antbyw": "plugins.antbyw.main",
         "ganganonline": "plugins.ganganonline.main",
+        "bilibili": "plugins.bilibili.main",
     }
 
     @classmethod

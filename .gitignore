@@ -177,3 +177,5 @@ temp*
 cbz
 .idea/UniappTool.xml
 data
+system_config.json
+updater.json

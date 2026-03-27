@@ -1,6 +1,6 @@
 import logging
 
-import requests
+import httpx
 
 from utils import config
 
@@ -14,19 +14,29 @@ def login(**information: dict) -> str:
     """
     if information["username"]:
         try:
-            res = requests.post(f"{information['url']}/api/kb/web/login", data={
+            # Handle httpx proxy format
+            proxy = information.get("proxy")
+            proxies = None
+            if proxy:
+                if isinstance(proxy, dict):
+                    proxies = {f"{proto}://": url for proto, url in proxy.items()}
+                else:
+                    proxies = proxy
+
+            res = httpx.post(f"{information['url']}/api/kb/web/login", data={
                 "username": information["username"],
                 "password": information["password"],
                 "salt": information["salt"]
             }, headers={
                 "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0"
-            }, proxies=information["proxy"])
+            }, proxy=proxies)
             res_json = res.json()
             if res_json["code"] == 200:
                 return res_json["results"]["token"]
             else:
                 print(res_json["message"])
         except Exception as e:
+            logging.error(f"登录异常: {e}")
             return None
     return None
 

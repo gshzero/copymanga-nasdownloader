@@ -1,11 +1,7 @@
 rich
 dotenv
 python-dotenv
-requests
+httpx
 natsort
 git+https://github.com/misaka10843/cbz.git
 beautifulsoup4
-
-fastapi
-uvicorn
-apscheduler

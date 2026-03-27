@@ -1,7 +1,7 @@
 import logging
 from typing import List
 
-import requests
+import httpx
 
 from utils import config
 
@@ -49,11 +49,11 @@ class NotificationManager:
             }
 
             try:
-                res = requests.post(url, json=payload, timeout=15)
+                res = httpx.post(url, json=payload, timeout=15)
                 res.raise_for_status()
-            except requests.exceptions.RequestException:
+            except httpx.HTTPError:
                 try:
-                    res = requests.post(url, json=payload, timeout=15)
+                    res = httpx.post(url, json=payload, timeout=15)
                 except:
                     log.error("推送请求失败，无法连接服务器")
                     return

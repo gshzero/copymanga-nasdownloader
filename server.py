@@ -7,6 +7,7 @@ from typing import Dict, Any
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -24,7 +25,14 @@ from updater.updater import SITE_MAPPING
 log_utils.configure_logging()
 log = logging.getLogger("WebServer")
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_scheduler()
+    yield
+    if scheduler.running:
+        scheduler.shutdown()
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -59,7 +67,6 @@ def save_schedule_config(cfg):
         json.dump(cfg, f)
 
 
-@app.on_event("startup")
 def init_scheduler():
     cfg = load_schedule_config()
     log.info(f"正在加载定时任务配置: {cfg}")
