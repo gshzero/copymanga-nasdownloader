@@ -5,7 +5,7 @@ from typing import Dict, List, Any
 
 from utils import config
 from utils.notify import notifier
-from . import copymanga, terra_historicus, antbyw, ganganonline, bilibili
+from . import copymanga, terra_historicus, antbyw, ganganonline, bilibili, rawkuma
 
 log = logging.getLogger(__name__)
 
@@ -16,6 +16,7 @@ SITE_MAPPING = {
     "antbyw": antbyw.AntbywUpdater,
     "ganganonline": ganganonline.GanganOnlineUpdater,
     "bilibili": bilibili.BilibiliUpdater,
+    "rawkuma": rawkuma.RawkumaUpdater,
 }
 
 

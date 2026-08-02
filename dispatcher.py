@@ -14,6 +14,7 @@ class DownloadDispatcher:
         "antbyw": "plugins.antbyw.main",
         "ganganonline": "plugins.ganganonline.main",
         "bilibili": "plugins.bilibili.main",
+        "rawkuma": "plugins.rawkuma.main",
     }
 
     @classmethod

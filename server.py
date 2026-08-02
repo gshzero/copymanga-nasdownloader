@@ -2,6 +2,8 @@ import json
 import logging
 import os
 from datetime import datetime
+from logging import FileHandler
+from logging.handlers import TimedRotatingFileHandler
 from typing import Dict, Any
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -211,11 +213,37 @@ def trigger_task(days, hours, save=True):
 def get_logs():
     log_dir = os.path.join(config.DATA_PATH, 'log')
     if not os.path.exists(log_dir): return []
-    files = sorted([f for f in os.listdir(log_dir) if f.endswith('.log')])
-    if not files: return []
-    latest = files[-1]
+
+    current_log_path = None
+    for handler in logging.getLogger().handlers:
+        if isinstance(handler, (TimedRotatingFileHandler, FileHandler)):
+            handler.flush()
+            base_filename = getattr(handler, "baseFilename", None)
+            if not base_filename or not os.path.exists(base_filename):
+                continue
+
+            try:
+                log_dir_abs = os.path.abspath(log_dir)
+                file_abs = os.path.abspath(base_filename)
+                if os.path.commonpath([log_dir_abs, file_abs]) == log_dir_abs:
+                    current_log_path = base_filename
+                    break
+            except ValueError:
+                continue
+
+    if current_log_path:
+        latest_path = current_log_path
+    else:
+        files = [
+            os.path.join(log_dir, f)
+            for f in os.listdir(log_dir)
+            if f.endswith('.log') or '.log.' in f
+        ]
+        if not files: return []
+        latest_path = max(files, key=os.path.getmtime)
+
     try:
-        with open(os.path.join(log_dir, latest), 'r', encoding='utf-8') as f:
+        with open(latest_path, 'r', encoding='utf-8') as f:
             return f.readlines()[-200:]
     except Exception as e:
         log.error(f"读取日志文件失败: {e}")
