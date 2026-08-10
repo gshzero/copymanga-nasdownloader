@@ -197,9 +197,9 @@ def download_chapter(task: Dict[str, Any], chapter_url: str, chapter_title: str,
 
     download_failed = False
     for index, url in enumerate(image_list):
-        image_path = os.path.join(save_path, f"{index:04d}{_image_extension(url)}")
+        image_path = os.path.join(save_path, f"{index+1:04d}{_image_extension(url)}")
         if download_image(url, image_path, chapter_url):
-            log.debug(f"已下载 Rawkuma 图片: {index:04d}")
+            log.debug(f"已下载 Rawkuma 图片: {index+1:04d}")
         else:
             download_failed = True
 
