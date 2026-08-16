@@ -2,7 +2,6 @@ import logging
 import os
 import re
 import time
-import zipfile
 from pathlib import Path
 from typing import Any, Dict, List
 from urllib.parse import urljoin, urlparse
@@ -40,47 +39,6 @@ def clean_filename(name: str) -> str:
 
 def absolute_url(url: str) -> str:
     return urljoin(BASE_URL, url or "")
-
-
-def _safe_extract_zip(zip_ref: zipfile.ZipFile, target_dir: Path):
-    target_root = target_dir.resolve()
-    for member in zip_ref.infolist():
-        dest = (target_dir / member.filename).resolve()
-        if target_root not in dest.parents and dest != target_root:
-            raise RuntimeError(f"Unsafe ZIP path: {member.filename}")
-    zip_ref.extractall(target_dir)
-
-
-def _download_google_drive_zip(dl_url: str, chapter_dir: Path) -> bool:
-    try:
-        response = request.get(dl_url)
-        if not response:
-            return False
-
-        content_type = response.headers.get("content-type", "")
-        if "text/html" in content_type:
-            log.warning("Google Drive 返回 HTML 页面，无法直接作为 ZIP 下载")
-            return False
-
-        zip_path = chapter_dir / f"{chapter_dir.name}.zip"
-        with open(zip_path, "wb") as f:
-            for chunk in response.iter_bytes(chunk_size=1024 * 1024):
-                if chunk:
-                    f.write(chunk)
-
-        if not zipfile.is_zipfile(zip_path):
-            zip_path.unlink(missing_ok=True)
-            log.warning("Google Drive 下载结果不是有效 ZIP")
-            return False
-
-        with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            _safe_extract_zip(zip_ref, chapter_dir)
-
-        zip_path.unlink(missing_ok=True)
-        return True
-    except Exception as e:
-        log.warning(f"Google Drive ZIP 下载失败: {e}")
-        return False
 
 
 def extract_image_urls(html: str) -> List[str]:
@@ -173,19 +131,6 @@ def download_chapter(task: Dict[str, Any], chapter_url: str, chapter_title: str,
     current_name = clean_filename(chapter_title)
     save_path = os.path.join(config.DOWNLOAD_PATH, "rawkuma", series_name, current_name)
     os.makedirs(save_path, exist_ok=True)
-
-    chapter_dir = Path(save_path)
-    dl_url = task.get("drive_links", {}).get(chapter_url, "")
-    if dl_url and "drive.google.com" in dl_url:
-        log.info(f"尝试 Rawkuma Google Drive ZIP 下载: {series_name} - {current_name}")
-        if _download_google_drive_zip(dl_url, chapter_dir):
-            chapter_num = task.get("starting_index", 0) + chapter_index + 1
-            chapter_filename = f"{chapter_num:04d} {current_name}"
-            postprocess(series_name, current_name, chapter_filename, chapter_num, save_path, False)
-            updater.update_chapter_record(task["site"], task["manga_url"], chapter_title)
-            notifier.add_success("rawkuma", task["name"], chapter_title)
-            return True
-        log.info("Google Drive ZIP 下载不可用，切换到网页图片抓取")
 
     image_list = get_chapter_images(chapter_url)
     if not image_list:
