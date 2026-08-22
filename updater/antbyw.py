@@ -37,8 +37,7 @@ class AntbywUpdater(BaseUpdater):
 
         log.info(f"获取漫画页面: {record['name']} (ID: {comic_id})")
         # 临时更新 headers
-        request.session.headers.update(headers)
-        response = request.get(url)
+        response = request.get(url, headers=headers)
 
         if not response:
             log.error("无法获取漫画页面")
