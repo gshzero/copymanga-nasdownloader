@@ -63,11 +63,11 @@ class BilibiliUpdater(BaseUpdater):
             
         return [(chap['uuid'], chap['name']) for chap in chapters]
 
-    def create_download_task(self, record: Dict, chapter_infos: List[Tuple[str, str]]) -> Dict[str, Any]:
+    def create_download_task(self, record: Dict, chapter_infos: List[Tuple[str, str]], chapters: List[Dict] = None) -> Dict[str, Any]:
         """
         Modified to return a task that processor.py can handle.
         """
-        return {
+        task = {
             "site": self.SITE_NAME,
             "type": record['type'],
             "id": record['id'],
@@ -75,6 +75,9 @@ class BilibiliUpdater(BaseUpdater):
             "name": record.get('name', 'Bilibili'),
             "latest_chapter": record.get('latest_chapter')
         }
+        if chapters:
+            task["chapter_meta"] = self.build_chapter_meta(record, chapters)
+        return task
     
     @classmethod
     def validate_record(cls, record: Dict) -> bool:

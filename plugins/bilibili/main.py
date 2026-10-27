@@ -46,8 +46,23 @@ async def get_chapter_content(task_type: str, uuid: str):
         log.error(f"Bilibili 内容解析失败: {e}")
         return None, None
 
+from utils.cbz_helper import compute_target_cbz_path, is_cbz_already_downloaded
+
+
 def download_chapter(task: Dict[str, Any], uuid: str, chapter_name: str, chapter_index: int = 0):
     """下载单个章节 (CV 或 Opus)"""
+    meta = task.get('chapter_meta', {}).get(uuid)
+    chap_num = meta.get('chapter_num', chapter_index + 1) if meta else (chapter_index + 1)
+
+    cbz_path, chapter_filename, chapter_num, _ = compute_target_cbz_path(
+        "bilibili", task, chapter_name, chapter_num=chap_num, chapter_meta=meta
+    )
+
+    if is_cbz_already_downloaded("bilibili", task, chapter_name, chapter_num=chap_num, chapter_meta=meta):
+        log.info(f"CBZ 文件已存在，跳过下载: {task['name']} - {chapter_filename}")
+        updater.update_chapter_record(task['site'], task['id'], uuid, uuid)
+        return True
+
     loop = _get_loop()
     
     effective_type = task.get('type')
@@ -83,9 +98,6 @@ def download_chapter(task: Dict[str, Any], uuid: str, chapter_name: str, chapter
 
     log.info(f"{current_name} 下载完成，开始打包 CBZ")
 
-    chapter_num = chapter_index + 1
-    chapter_filename = f"{chapter_num:03d}-{current_name}" if task.get('type') == 'lid' else current_name
-
     postprocess(
         series_name=series_name,
         chapter_name=current_name,
@@ -94,9 +106,9 @@ def download_chapter(task: Dict[str, Any], uuid: str, chapter_name: str, chapter
         file_path=save_path
     )
 
-    # 更新下载记录
+    # 更新下载记录（记录 uuid 到 downloaded_chapters，用于缺失章节检测）
     updater.update_chapter_record(
-        task['site'], task['id'], uuid
+        task['site'], task['id'], uuid, uuid
     )
 
     notifier.add_success("bilibili", task['name'], current_name)

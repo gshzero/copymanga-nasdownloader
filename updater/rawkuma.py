@@ -109,6 +109,10 @@ class RawkumaUpdater(BaseUpdater):
         log.info(f"Rawkuma 解析到 {len(chapters)} 个章节")
         return chapters
 
+    def _chapter_name(self, chapter: Dict) -> str:
+        """提取章节名称"""
+        return chapter.get('title') or ''
+
     def find_subsequent_uuids(self, chapters: List[Dict], target_chapter: str) -> List[Tuple[str, str]]:
         if not chapters:
             return []
@@ -130,8 +134,9 @@ class RawkumaUpdater(BaseUpdater):
 
         return []
 
-    def create_download_task(self, record: Dict, chapter_infos: List[Tuple[str, str]]) -> Dict[str, Any]:
-        chapters = self.get_chapters(record)
+    def create_download_task(self, record: Dict, chapter_infos: List[Tuple[str, str]], chapters: List[Dict] = None) -> Dict[str, Any]:
+        if chapters is None:
+            chapters = self.get_chapters(record)
         drive_links = {chapter["uuid"]: chapter.get("dl_url", "") for chapter in chapters}
 
         starting_index = 0
@@ -141,7 +146,7 @@ class RawkumaUpdater(BaseUpdater):
                 if chapter["title"] == record["latest_chapter"]:
                     break
 
-        return {
+        task = {
             "site": self.SITE_NAME,
             "manga_url": record["manga_url"],
             "name": record["name"],
@@ -150,3 +155,5 @@ class RawkumaUpdater(BaseUpdater):
             "latest_chapter": record.get("latest_chapter", ""),
             "starting_index": starting_index,
         }
+        task["chapter_meta"] = self.build_chapter_meta(record, chapters)
+        return task

@@ -63,6 +63,10 @@ class GanganOnlineUpdater(BaseUpdater):
             log.exception(f"获取 GanganOnline 章节异常: {str(e)}")
             return []
 
+    def _chapter_name(self, chapter: Dict) -> str:
+        """提取章节名称"""
+        return chapter.get('title') or ''
+
     def find_subsequent_uuids(self, chapters: List[Dict], target_chapter: str) -> List[Tuple[str, str]]:
         if not chapters:
             return []
@@ -84,17 +88,18 @@ class GanganOnlineUpdater(BaseUpdater):
 
         return []
 
-    def create_download_task(self, record: Dict, chapter_infos: List[Tuple[str, str]]) -> Dict[str, Any]:
+    def create_download_task(self, record: Dict, chapter_infos: List[Tuple[str, str]], chapters: List[Dict] = None) -> Dict[str, Any]:
+        if chapters is None:
+            chapters = self.get_chapters(record)
         starting_index = 0
         if record.get('latest_chapter'):
-            chapters = self.get_chapters(record)
             for chapter in chapters:
                 if chapter['title'] == record['latest_chapter']:
                     starting_index += 1
                     break
                 starting_index += 1
 
-        return {
+        task = {
             "site": self.SITE_NAME,
             "comic_id": record['comic_id'],
             "name": record['name'],
@@ -102,3 +107,5 @@ class GanganOnlineUpdater(BaseUpdater):
             "latest_chapter": record.get('latest_chapter', ""),
             "starting_index": starting_index
         }
+        task["chapter_meta"] = self.build_chapter_meta(record, chapters)
+        return task

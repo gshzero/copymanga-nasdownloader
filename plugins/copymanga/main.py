@@ -26,15 +26,30 @@ def get_chapter(path_word: str, uuid: str):
         return None
 
 
+from utils.cbz_helper import compute_target_cbz_path, is_cbz_already_downloaded
+
+
 def download_chapter(task: Dict[str, Any], uuid: str, chapter_name: str):
     """下载单个章节"""
+    current_name = chapter_name
+    meta = task.get('chapter_meta', {}).get(uuid)
+    chap_num = meta.get('chapter_num', 0) if meta else 0
+
+    cbz_path, chapter_filename, chapter_num, is_special = compute_target_cbz_path(
+        "copymanga", task, current_name, chapter_num=chap_num, chapter_meta=meta
+    )
+
+    if is_cbz_already_downloaded("copymanga", task, current_name, chapter_num=chap_num, chapter_meta=meta):
+        log.info(f"CBZ 文件已存在，跳过下载: {task['name']} - {chapter_filename}")
+        updater.update_chapter_record(task['site'], task['path_word'], current_name, uuid)
+        return True
+
     chapter = get_chapter(task['path_word'], uuid)
     if not chapter:
         log.error(f"无法获取章节 {chapter_name} (UUID: {uuid}) 的内容")
         notifier.add_error("copymanga", f"{task['name']} - {chapter_name}", "获取章节内容失败")
         return False
 
-    current_name = chapter_name
     log.info(f"已获取到 {task['name']} {current_name} 的内容，开始安排下载")
 
     save_path = os.path.join(config.DOWNLOAD_PATH, task['name'], current_name)
@@ -57,21 +72,14 @@ def download_chapter(task: Dict[str, Any], uuid: str, chapter_name: str):
 
     log.info(f"{task['name']} {current_name} 下载完成，开始进行cbz打包")
 
-    # 文件重命名处理
-    if not config.USE_CM_CNAME:
-        chapter_filename, chapter_num, is_special = rename_series(
-            current_name, task['ep_pattern'], task['vol_pattern'])
-    else:
-        chapter_filename, chapter_num, is_special = current_name, 0, False
-
     postprocess(
         task['name'], current_name,
         chapter_filename, chapter_num, save_path, is_special
     )
 
-    # 更新下载记录
+    # 更新下载记录（记录 uuid 到 downloaded_chapters，用于缺失章节检测）
     updater.update_chapter_record(
-        task['site'], task['path_word'], current_name
+        task['site'], task['path_word'], current_name, uuid
     )
 
     notifier.add_success("copymanga", task['name'], current_name)

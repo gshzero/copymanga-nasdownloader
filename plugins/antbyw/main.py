@@ -127,7 +127,22 @@ def get_chapter_images(comic_id: str, zjid: str) -> tuple[str, List[str]]:
     return base_url, unique_images
 
 
+from utils.cbz_helper import compute_target_cbz_path, is_cbz_already_downloaded
+
+
 def download_chapter(task: Dict[str, Any], uuid: str, chapter_name: str):
+    meta = task.get('chapter_meta', {}).get(uuid)
+    chap_num = meta.get('chapter_num', 0) if meta else 0
+
+    cbz_path, chapter_filename, chapter_num, is_special = compute_target_cbz_path(
+        "antbyw", task, chapter_name, chapter_num=chap_num, chapter_meta=meta
+    )
+
+    if is_cbz_already_downloaded("antbyw", task, chapter_name, chapter_num=chap_num, chapter_meta=meta):
+        log.info(f"CBZ 文件已存在，跳过下载: {task['name']} - {chapter_filename}")
+        updater.update_chapter_record(task['site'], task['comic_id'], chapter_name, uuid)
+        return True
+
     log.info(f"准备下载: {task['name']} - {chapter_name}")
 
     page_url, images = get_chapter_images(task['comic_id'], uuid)
@@ -174,16 +189,12 @@ def download_chapter(task: Dict[str, Any], uuid: str, chapter_name: str):
         notifier.add_error("antbyw", f"{task['name']} - {chapter_name}", "所有图片下载失败")
         return False
 
-    chapter_filename, chapter_num, is_special = rename_series(
-        chapter_name, task['ep_pattern'], task['vol_pattern']
-    )
-
     postprocess(
         task['name'], chapter_name,
         chapter_filename, chapter_num, save_path, is_special
     )
 
-    updater.update_chapter_record(task['site'], task['comic_id'], chapter_name)
+    updater.update_chapter_record(task['site'], task['comic_id'], chapter_name, uuid)
 
     notifier.add_success("antbyw", task['name'], chapter_name)
 

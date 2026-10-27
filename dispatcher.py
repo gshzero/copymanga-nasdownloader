@@ -3,6 +3,8 @@ import logging
 from typing import Dict, List, Any
 
 from utils.notify import notifier
+from utils.cbz_helper import compute_target_cbz_path, is_cbz_already_downloaded
+from updater import updater
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +37,47 @@ class DownloadDispatcher:
                     module = importlib.import_module(module_path)
                     log.info(f"开始处理 {site} 的 {len(tasks)} 个下载任务")
 
-                    module.download_batch(tasks)
+                    # 过滤掉已经存在的章节（已生成的cbz文件），只下载缺失的章节
+                    filtered_tasks = []
+                    for task in tasks:
+                        chapter_infos = task.get('chapter_infos', [])
+                        if not chapter_infos:
+                            filtered_tasks.append(task)
+                            continue
+
+                        chapter_meta = task.get('chapter_meta', {})
+                        comic_id = (
+                            task.get('path_word') or
+                            task.get('comic_id') or
+                            task.get('id') or
+                            task.get('manga_url')
+                        )
+
+                        remaining = []
+                        for index, (uuid, name) in enumerate(chapter_infos):
+                            meta = chapter_meta.get(uuid)
+                            chap_num = meta.get('chapter_num') if meta else (index + 1)
+
+                            if is_cbz_already_downloaded(site, task, name, chapter_num=chap_num, chapter_meta=meta):
+                                c_desc = meta.get('chapter_filename') if meta else name
+                                log.info(f"已存在，跳过下载: {task['name']} - {c_desc}")
+                                if comic_id:
+                                    updater.update_chapter_record(site, comic_id, name, uuid)
+                                continue
+
+                            remaining.append((uuid, name))
+
+                        if remaining:
+                            new_task = task.copy()
+                            new_task['chapter_infos'] = remaining
+                            filtered_tasks.append(new_task)
+                        else:
+                            log.info(f"{task['name']} 没有需要下载的章节，全部已存在")
+
+                    if filtered_tasks:
+                        module.download_batch(filtered_tasks)
+                    else:
+                        log.info(f"{site} 的所有任务已跳过（无缺失章节）")
 
                     log.info(f"{site} 的所有任务处理完成")
                 except ImportError as e:

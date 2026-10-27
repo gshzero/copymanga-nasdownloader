@@ -42,6 +42,14 @@ class TerraHistoricusUpdater(BaseUpdater):
             log.exception(f"获取章节异常: {str(e)}")
             return []
 
+    def _chapter_name(self, chapter: Dict) -> str:
+        """提取章节名称"""
+        return chapter.get('title') or chapter.get('shortTitle') or ''
+
+    def _chapter_uuid(self, chapter: Dict) -> str:
+        """提取章节唯一标识"""
+        return chapter.get('cid') or ''
+
     def find_subsequent_uuids(self, chapters: List[Dict], target_chapter: str) -> List[Tuple[str, str]]:
         """查找目标章节后的所有章节ID和标题"""
         if not chapters:
@@ -61,17 +69,18 @@ class TerraHistoricusUpdater(BaseUpdater):
 
         return []
 
-    def create_download_task(self, record: Dict, chapter_infos: List[Tuple[str, str]]) -> Dict[str, Any]:
+    def create_download_task(self, record: Dict, chapter_infos: List[Tuple[str, str]], chapters: List[Dict] = None) -> Dict[str, Any]:
         """创建下载任务数据结构"""
+        if chapters is None:
+            chapters = self.get_chapters(record)
         # 计算起始索引
         starting_index = 0
         if record.get('latest_chapter'):
-            chapters = self.get_chapters(record)
             for chapter in chapters:
                 starting_index += 1
-                if chapter['title'] == record['latest_chapter'] or chapter['shortTitle'] == record['latest_chapter']:
+                if chapter['title'] == record['latest_chapter'] or chapter.get('shortTitle') == record['latest_chapter']:
                     break
-        return {
+        task = {
             "site": self.SITE_NAME,
             "comic_id": record['comic_id'],
             "name": record['name'],
@@ -79,3 +88,5 @@ class TerraHistoricusUpdater(BaseUpdater):
             "latest_chapter": record.get('latest_chapter', ""),
             "starting_index": starting_index
         }
+        task["chapter_meta"] = self.build_chapter_meta(record, chapters)
+        return task

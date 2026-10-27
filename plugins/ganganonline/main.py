@@ -46,7 +46,23 @@ def get_chapter_images(comic_id: str, chapter_id: str):
         return None
 
 
+from utils.cbz_helper import compute_target_cbz_path, is_cbz_already_downloaded
+
+
 def download_chapter(task: Dict[str, Any], uuid: str, chapter_title: str, chapter_index: int):
+    meta = task.get('chapter_meta', {}).get(uuid)
+    default_num = task.get('starting_index', 0) + chapter_index + 1
+    chap_num = meta.get('chapter_num', default_num) if meta else default_num
+
+    cbz_path, chapter_filename, chapter_num, is_special = compute_target_cbz_path(
+        "ganganonline", task, chapter_title, chapter_num=chap_num, chapter_meta=meta
+    )
+
+    if is_cbz_already_downloaded("ganganonline", task, chapter_title, chapter_num=chap_num, chapter_meta=meta):
+        log.info(f"CBZ 文件已存在，跳过下载: {task['name']} - {chapter_filename}")
+        updater.update_chapter_record(task['site'], task['comic_id'], chapter_title, uuid)
+        return True
+
     image_list = get_chapter_images(task['comic_id'], uuid)
 
     if not image_list:
@@ -74,17 +90,13 @@ def download_chapter(task: Dict[str, Any], uuid: str, chapter_title: str, chapte
 
     log.info(f"{task['name']} {chapter_title} 下载完成，开始进行cbz打包")
 
-    chapter_num = task['starting_index'] + chapter_index + 1
-    chapter_filename = f"{chapter_num:04d} {chapter_title}"
-    is_special = False
-
     postprocess(
         task['name'], chapter_title,
         chapter_filename, chapter_num, save_path, is_special
     )
 
     updater.update_chapter_record(
-        task['site'], task['comic_id'], chapter_title
+        task['site'], task['comic_id'], chapter_title, uuid
     )
 
     notifier.add_success("ganganonline", task['name'], chapter_title)

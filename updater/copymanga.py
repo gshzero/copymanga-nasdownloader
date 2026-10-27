@@ -46,14 +46,17 @@ class CopyMangaUpdater(BaseUpdater):
 
         return [(chap['uuid'], chap['name']) for chap in sorted_chapters]
 
-    def create_download_task(self, record: Dict, chapter_infos: List[Tuple[str, str]]) -> Dict[str, Any]:
-        return {
+    def create_download_task(self, record: Dict, chapter_infos: List[Tuple[str, str]], chapters: List[Dict] = None) -> Dict[str, Any]:
+        task = {
             "site": self.SITE_NAME,
             "path_word": record['path_word'],
             "name": record['name'],
             "chapter_infos": chapter_infos,
             "group_word": record['group_word'],
-            "current_chapter": record['latest_chapter'],
-            "ep_pattern": record['ep_pattern'],
-            "vol_pattern": record['vol_pattern'],
+            "current_chapter": record.get('latest_chapter', ""),
+            "ep_pattern": record.get('ep_pattern'),
+            "vol_pattern": record.get('vol_pattern'),
         }
+        if chapters:
+            task["chapter_meta"] = self.build_chapter_meta(record, chapters)
+        return task

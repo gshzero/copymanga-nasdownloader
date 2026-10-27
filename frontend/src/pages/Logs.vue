@@ -25,7 +25,7 @@
 </template>
 
 <script setup>
-import {inject, nextTick, onMounted, onUnmounted, ref} from 'vue'
+import {inject, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import axios from 'axios'
 
 const showMsg = inject('showMsg')
@@ -34,6 +34,21 @@ const loadingLogs = ref(false)
 const logContainer = ref(null)
 const autoScroll = ref(true)
 let pollingTimer = null
+let scrollRequestId = 0
+
+const scrollLogsToBottom = async () => {
+  const requestId = ++scrollRequestId
+  await nextTick()
+
+  // The switch may have been turned off while the DOM update was pending.
+  if (autoScroll.value && requestId === scrollRequestId && logContainer.value) {
+    logContainer.value.scrollTop = logContainer.value.scrollHeight
+  }
+}
+
+watch(autoScroll, (enabled) => {
+  if (!enabled) scrollRequestId++
+})
 
 const fetchLogs = async (isBackground = false) => {
   if (!isBackground) loadingLogs.value = true
@@ -42,11 +57,7 @@ const fetchLogs = async (isBackground = false) => {
     logs.value = res.data
 
     if (autoScroll.value) {
-      await nextTick(() => {
-        if (logContainer.value) {
-          logContainer.value.scrollTop = logContainer.value.scrollHeight
-        }
-      })
+      await scrollLogsToBottom()
     }
   } catch (e) {
     if (!isBackground) showMsg('获取日志失败', 'error')

@@ -210,6 +210,10 @@ const openAddDialog = (siteKey) => {
 
 const openEditDialog = (siteKey, index) => {
   const item = JSON.parse(JSON.stringify(configData.value[siteKey][index]))
+  // Convert downloaded_chapters array to string for display in readonly field
+  if (Array.isArray(item.downloaded_chapters)) {
+    item.downloaded_chapters = item.downloaded_chapters.join(', ')
+  }
   dialog.value = {show: true, isEdit: true, site: siteKey, index: index, data: item}
 }
 
@@ -230,6 +234,14 @@ const saveDialog = () => {
       showMsg('请填写必填项', 'error')
       return
     }
+  }
+
+  // Convert downloaded_chapters string back to array
+  if (typeof data.downloaded_chapters === 'string') {
+    data.downloaded_chapters = data.downloaded_chapters
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
   }
 
   if (isEdit) configData.value[site][index] = data
@@ -253,6 +265,9 @@ const getDisplayValue = (siteKey, fieldName, value) => {
   if (field?.type === 'select' && field.options) {
     const option = field.options.find(opt => opt.value === value)
     return option ? option.label : value
+  }
+  if (Array.isArray(value)) {
+    return value.length > 0 ? `${value.length} 个章节` : '-'
   }
   return value
 }

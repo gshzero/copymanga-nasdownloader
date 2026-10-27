@@ -125,25 +125,30 @@ class AntbywUpdater(BaseUpdater):
         # 按章节号从小到大排序
         sorted_chapters = sorted(chapters, key=lambda x: extract_number(x['name']))
 
-        result_chapters = []
-
-        if not target_chapter:
-            result_chapters = sorted_chapters
-        else:
+        if target_chapter:
             target_index = -1
             for i, chapter in enumerate(sorted_chapters):
                 if chapter['name'] == target_chapter:
                     target_index = i
                     break
 
-            if target_index != -1 and target_index < len(sorted_chapters) - 1:
-                result_chapters = sorted_chapters[target_index + 1:]
+            # 未找到或已是最后章节，返回空列表（避免重复下载）
+            if target_index == -1 or target_index >= len(sorted_chapters) - 1:
+                log.debug(f"未找到或已是最后章节: target='{target_chapter}', index={target_index}, total={len(sorted_chapters)}")
+                return []
+
+            # 返回后续章节
+            result_chapters = sorted_chapters[target_index + 1:]
+        else:
+            # 首次下载：target_chapter 为空时，返回所有章节
+            log.info("首次检查，将返回所有章节")
+            result_chapters = sorted_chapters
 
         # 返回 (uuid, name) 元组
         return [(chap['uuid'], chap['name']) for chap in result_chapters]
 
-    def create_download_task(self, record: Dict, chapter_infos: List[Tuple[str, str]]) -> Dict[str, Any]:
-        return {
+    def create_download_task(self, record: Dict, chapter_infos: List[Tuple[str, str]], chapters: List[Dict] = None) -> Dict[str, Any]:
+        task = {
             "site": self.SITE_NAME,
             "comic_id": record['comic_id'],
             "name": record['name'],
@@ -152,3 +157,6 @@ class AntbywUpdater(BaseUpdater):
             "ep_pattern": record.get('ep_pattern', ""),
             "vol_pattern": record.get('vol_pattern', "")
         }
+        if chapters:
+            task["chapter_meta"] = self.build_chapter_meta(record, chapters)
+        return task

@@ -297,7 +297,8 @@ CMNAS_CM_PROXY= # copymanga 使用的代理
 在 `updater/your_site.py` 中继承 `BaseUpdater`：
 
 * `get_chapters()`: 调用 API 或爬取网页，返回包含章节名称和 ID 的列表。
-* `find_subsequent_uuids()`: 根据 `updater.json` 中的 `latest_chapter` 过滤出需要下载的新章节 ID。
+* `find_missing_chapters()`: 对比 `get_chapters()` 返回的完整章节列表与 `updater.json` 中的 `downloaded_chapters`（UUID 集合），返回缺失章节的 `(uuid, name)` 列表。首次升级时根据 `MISSING_CHAPTER_CONSERVATIVE` 配置决定是否补齐历史章节。
+* `_chapter_name()` / `_chapter_uuid()`: 提取章节名称和唯一标识（默认取 `name`/`uuid`，各站点可覆盖）。
 * `create_download_task()`: 构造传递给插件的任务字典。
 
 #### 第二步：创建下载插件 (Plugin)

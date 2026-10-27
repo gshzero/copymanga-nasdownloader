@@ -23,8 +23,24 @@ def get_chapter(comic_id: str, cid: str):
         return None
 
 
+from utils.cbz_helper import compute_target_cbz_path, is_cbz_already_downloaded
+
+
 def download_chapter(task: Dict[str, Any], uuid: str, chapter_title: str, chapter_index: int):
     """下载单个章节"""
+    meta = task.get('chapter_meta', {}).get(uuid)
+    default_num = task.get('starting_index', 0) + chapter_index + 1
+    chap_num = meta.get('chapter_num', default_num) if meta else default_num
+
+    cbz_path, chapter_filename, chapter_num, is_special = compute_target_cbz_path(
+        "terra_historicus", task, chapter_title, chapter_num=chap_num, chapter_meta=meta
+    )
+
+    if is_cbz_already_downloaded("terra_historicus", task, chapter_title, chapter_num=chap_num, chapter_meta=meta):
+        log.info(f"CBZ 文件已存在，跳过下载: {task['name']} - {chapter_filename}")
+        updater.update_chapter_record(task['site'], task['comic_id'], chapter_title, uuid)
+        return True
+
     chapter = get_chapter(task['comic_id'], uuid)
     if not chapter:
         log.error(f"无法获取章节 {chapter_title} (CID: {uuid}) 的内容")
@@ -64,18 +80,14 @@ def download_chapter(task: Dict[str, Any], uuid: str, chapter_title: str, chapte
 
     log.info(f"{task['name']} {chapter_title} 下载完成，开始进行cbz打包")
 
-    chapter_filename = f"{task['starting_index'] + chapter_index + 1:04d} {chapter_title}"
-    chapter_num = task['starting_index'] + chapter_index + 1
-    is_special = False
-
     postprocess(
         task['name'], chapter_title,
         chapter_filename, chapter_num, save_path, is_special
     )
 
-    # 更新下载记录
+    # 更新下载记录（记录 cid 到 downloaded_chapters，用于缺失章节检测）
     updater.update_chapter_record(
-        task['site'], task['comic_id'], chapter_title
+        task['site'], task['comic_id'], chapter_title, uuid
     )
 
     notifier.add_success("terra_historicus", task['name'], chapter_title)

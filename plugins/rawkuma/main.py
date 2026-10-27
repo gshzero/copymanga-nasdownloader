@@ -126,7 +126,23 @@ def get_chapter_images(chapter_url: str) -> List[str]:
     return extract_image_urls(response.text)
 
 
+from utils.cbz_helper import compute_target_cbz_path, is_cbz_already_downloaded
+
+
 def download_chapter(task: Dict[str, Any], chapter_url: str, chapter_title: str, chapter_index: int):
+    meta = task.get('chapter_meta', {}).get(chapter_url)
+    default_num = task.get("starting_index", 0) + chapter_index + 1
+    chap_num = meta.get('chapter_num', default_num) if meta else default_num
+
+    cbz_path, chapter_filename, chapter_num, is_special = compute_target_cbz_path(
+        "rawkuma", task, chapter_title, chapter_num=chap_num, chapter_meta=meta
+    )
+
+    if is_cbz_already_downloaded("rawkuma", task, chapter_title, chapter_num=chap_num, chapter_meta=meta):
+        log.info(f"CBZ 文件已存在，跳过下载: {task['name']} - {chapter_filename}")
+        updater.update_chapter_record(task["site"], task["manga_url"], chapter_title, chapter_url)
+        return True
+
     series_name = clean_filename(task["name"])
     current_name = clean_filename(chapter_title)
     save_path = os.path.join(config.DOWNLOAD_PATH, "rawkuma", series_name, current_name)
@@ -152,11 +168,8 @@ def download_chapter(task: Dict[str, Any], chapter_url: str, chapter_title: str,
         notifier.add_error("rawkuma", f"{task['name']} - {chapter_title}", "部分图片下载失败")
         return False
 
-    chapter_num = task.get("starting_index", 0) + chapter_index + 1
-    chapter_filename = f"{chapter_num:04d} {current_name}"
-
     postprocess(series_name, current_name, chapter_filename, chapter_num, save_path, False)
-    updater.update_chapter_record(task["site"], task["manga_url"], chapter_title)
+    updater.update_chapter_record(task["site"], task["manga_url"], chapter_title, chapter_url)
     notifier.add_success("rawkuma", task["name"], chapter_title)
     log.info(f"Rawkuma {series_name} - {current_name} CBZ 打包完成")
     return True

@@ -21,6 +21,11 @@ CM_USERNAME = ""
 CM_PASSWORD = ""
 CM_PROXY = {}
 
+# 缺失章节检测开关
+# True  (保守策略): 首次升级时从当前 latest_chapter 继续，不重复下载历史章节
+# False (补齐策略): 首次升级时下载全部缺失章节（包括历史章节）
+MISSING_CHAPTER_CONSERVATIVE = True
+
 # Push 配置
 PUSH_ENABLE = False
 PUSH_SERVER = ""
@@ -45,6 +50,7 @@ def reload():
     global DOWNLOAD_PATH, CBZ_PATH, USE_CM_CNAME, LOG_LEVEL
     global CM_API_URL, CM_TOKEN, CM_USERNAME, CM_PASSWORD, CM_PROXY
     global PUSH_ENABLE, PUSH_SERVER, PUSH_USER, PUSH_TOKEN, PUSH_SUMMARY_ONLY, PUSH_MARKDOWN
+    global MISSING_CHAPTER_CONSERVATIVE
 
     json_conf = load_system_config()
 
@@ -74,6 +80,13 @@ def reload():
 
     proxy_str = get_conf("cm_proxy", "CMNAS_CM_PROXY", '')
     CM_PROXY = {'http': proxy_str, 'https': proxy_str} if proxy_str else {}
+
+    # 缺失章节检测开关
+    missing_conservative_raw = get_conf("missing_chapter_conservative", "CMNAS_MISSING_CHAPTER_CONSERVATIVE", True)
+    if isinstance(missing_conservative_raw, str):
+        MISSING_CHAPTER_CONSERVATIVE = missing_conservative_raw.lower() in ('true', '1', 'yes')
+    else:
+        MISSING_CHAPTER_CONSERVATIVE = bool(missing_conservative_raw)
 
     # Push 配置
     PUSH_ENABLE = get_conf("push_enable", "PUSH_ENABLE", False)
